@@ -77,33 +77,39 @@ export class PasskeyService {
     return firstValueFrom(this.http.patch<null>(`/api/interaction/passkey/${passkey_id}`, { displayName }))
   }
 
-  private async sendAuth(auth: AuthenticationResponseJSON, remember?: boolean) {
+  private async sendAuth(auth: AuthenticationResponseJSON, remember?: boolean, enableMfa?: boolean, ensureMfa?: boolean) {
     const result = firstValueFrom(
       this.http.post<Redirect | undefined>('/api/interaction/passkey/end', {
         ...auth,
         remember,
+        enableMfa,
+        ensureMfa,
       }),
     )
     localStorage.setItem('passkey_seen', Date())
     return result
   }
 
-  async login(opts: { remember?: boolean, requireVerified?: boolean } = {}) {
-    const { remember = false, requireVerified } = opts
+  async login(opts: { remember?: boolean, requireVerified?: boolean, enableMfa?: boolean, ensureMfa?: boolean } = {}) {
+    const { remember = false, requireVerified, enableMfa, ensureMfa } = opts
     const optionsJSON = await this.getAuthOptions(requireVerified)
     const auth = await startAuthentication({ optionsJSON })
-    return await this.sendAuth(auth, remember)
+    return await this.sendAuth(auth, remember, enableMfa, ensureMfa)
   }
 
-  async register(opts: { requireVerified?: boolean } = {}) {
-    const { requireVerified } = opts
+  async register(opts: { requireVerified?: boolean, enableMfa?: boolean, ensureMfa?: boolean } = {}) {
+    const { requireVerified, enableMfa, ensureMfa } = opts
 
     const options = await firstValueFrom(
       this.http.post<PublicKeyCredentialCreationOptionsJSON>('/api/interaction/passkey/registration/start', { requireVerified }),
     )
     const reg = await startRegistration({ optionsJSON: options })
     try {
-      const result = await firstValueFrom(this.http.post<PasskeyRegisterResponse>('/api/interaction/passkey/registration/end', reg))
+      const result = await firstValueFrom(this.http.post<PasskeyRegisterResponse>('/api/interaction/passkey/registration/end', {
+        ...reg,
+        enableMfa,
+        ensureMfa,
+      }))
       localStorage.setItem('passkey_seen', Date())
 
       await this.openNamingDialog(result.passkeyId)
@@ -144,9 +150,9 @@ export class PasskeyService {
     })
   }
 
-  shouldAskPasskey(user: Partial<Pick<CurrentUserDetails, 'isPrivileged' | 'hasPasskeys'>>) {
+  shouldAskPasskey(user: Partial<Pick<CurrentUserDetails, 'canLogin' | 'hasPasskeys'>>) {
     return (
-      user.isPrivileged
+      user.canLogin
       // && !user.hasPasskeys // Only ask to create a passkey if the user has none. Need to think about this.
       && this.getPasskeySupport().enabled
       && !this.localPasskeySeen()

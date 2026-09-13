@@ -6,7 +6,7 @@ import { ADMIN_GROUP, CLIENT_DEFAULTS, REDIRECT_PATHS, TTLs } from '@shared/cons
 import { errors } from 'oidc-provider'
 import { getCookieKeys, getJWKs, makeKeysValid } from '../db/key'
 import { interactionPolicy } from 'oidc-provider'
-import { isExpired, isUnapproved, isUnverifiedEmail, loginFactors } from '@shared/user'
+import { isExpired, isUnapproved, isUnverifiedEmail, loginFactors, type amrFactor } from '@shared/user'
 import { isMatch } from 'matcher'
 import assert from 'assert'
 import { wildcardRedirect } from '@shared/url'
@@ -110,7 +110,7 @@ loginPromptPolicy.checks.add(new Check('user_login_required',
     if (oidc.account?.accountId) {
       const user = await getUserById(oidc.account.accountId)
       const amr = oidc.session?.amr ?? []
-      if (user && loginFactors(amr) === 0) {
+      if (user && loginFactors(amr as amrFactor[]) === 0) {
         return Check.REQUEST_PROMPT
       }
     }
@@ -125,7 +125,7 @@ loginPromptPolicy.checks.add(new Check('user_mfa_required',
     if (oidc.account?.accountId) {
       const user = await getUserById(oidc.account.accountId)
       const amr = oidc.session?.amr ?? []
-      if (user && userRequiresMfa(user) && loginFactors(amr) < 2) {
+      if (user && userRequiresMfa(user) && loginFactors(amr as amrFactor[]) < 2) {
         return Check.REQUEST_PROMPT
       }
     }
@@ -168,18 +168,11 @@ consentPromptPolicy.checks.add(new Check('client_mfa_required',
   'client_mfa_required', async (ctx) => {
     const { oidc } = ctx
     const amr = oidc.session?.amr ?? []
+    let mfaRequired = false
 
     // If client requires mfa, check for it
-    if (oidc.client && !!oidc.client.require_mfa && loginFactors(amr) < 2) {
-      return Check.REQUEST_PROMPT
-    }
-
-    // auth internal client requires mfa if the user has it set up
-    if (oidc.client?.clientId === 'auth_internal_client') {
-      const user = oidc.account?.accountId ? await getUserById(oidc.account.accountId) : null
-      if (user?.hasTotp && loginFactors(amr) < 2) {
-        return Check.REQUEST_PROMPT
-      }
+    if (oidc.client && !!oidc.client.require_mfa) {
+      mfaRequired = true
     }
 
     // proxyauth internal client requires mfa if proxyauth_url is for a domain that requires mfa
@@ -188,7 +181,19 @@ consentPromptPolicy.checks.add(new Check('client_mfa_required',
       const proxyAuthURLParam = redirectURL?.searchParams.get('proxyauth_url')
       const proxyAuthURL = proxyAuthURLParam ? URL.parse(proxyAuthURLParam) : null
       const domain = proxyAuthURL && await getProxyAuthWithCache(proxyAuthURL)
-      if (domain?.mfaRequired && loginFactors(amr) < 2) {
+      if (domain?.mfaRequired) {
+        mfaRequired = true
+      }
+    }
+
+    if (mfaRequired) {
+      if (loginFactors(amr as amrFactor[]) < 2) {
+        return Check.REQUEST_PROMPT
+      }
+
+      const user = oidc.account?.accountId ? await getUserById(oidc.account.accountId) : null
+      if (user && !userRequiresMfa(user)) {
+        // User does not require mfa, but client does. Make user enable mfa for future logins
         return Check.REQUEST_PROMPT
       }
     }

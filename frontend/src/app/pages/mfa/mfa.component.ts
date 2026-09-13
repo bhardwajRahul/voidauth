@@ -15,7 +15,6 @@ import { UserService } from '../../services/user.service'
 import { WebAuthnError } from '@simplewebauthn/browser'
 import { Router } from '@angular/router'
 import { TranslatePipe } from '@ngx-translate/core'
-import { loginFactors } from '@shared/user'
 
 @Component({
   selector: 'app-mfa',
@@ -66,9 +65,9 @@ export class MfaComponent implements OnInit {
         }
       }
 
-      // if user has 1 factor and amr includes webauth, notify that only verified passkeys will satisfy mfa
-      if (this.user && loginFactors(this.user.amr) < 2 && this.user.amr.includes('webauthn')) {
-        this.snackbarService.message('Only Passkeys that require MFA will satisfy MFA requirements by themselves.')
+      // if user amr includes webauth but not webauthn_v, notify that only verified passkeys will satisfy mfa
+      if (this.user && this.user.amr.includes('webauthn') && !this.user.amr.includes('webauthn_v')) {
+        this.snackbarService.message('Only Passkeys that require MFA will satisfy MFA requirements.')
       }
     } finally {
       this.spinnerService.hide()
@@ -125,7 +124,7 @@ export class MfaComponent implements OnInit {
     this.spinnerService.show()
     try {
       // Only require verified passkey if normal passkey would not improve user's mfa level
-      const redirect = await this.passkeyService.login({ requireVerified: this.user?.amr.includes('webauthn') })
+      const redirect = await this.passkeyService.login({ requireVerified: this.user?.amr.includes('webauthn'), ensureMfa: true })
       if (redirect) {
         this.spinnerService.show(true)
         window.location.assign(redirect.location)
@@ -142,7 +141,7 @@ export class MfaComponent implements OnInit {
     this.spinnerService.show()
     try {
       // Only require verified passkey if normal passkey would not improve user's mfa level
-      const redirect = await this.passkeyService.register({ requireVerified: this.user?.amr.includes('webauthn') })
+      const redirect = await this.passkeyService.register({ requireVerified: this.user?.amr.includes('webauthn'), ensureMfa: true })
       if (redirect.location) {
         this.spinnerService.show(true)
         window.location.assign(redirect.location)

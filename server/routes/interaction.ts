@@ -1,6 +1,6 @@
 import { Router, type Response } from 'express'
 import { getSession, provider } from '../oidc/provider'
-import { checkPasswordHash, getUserById, getUserByInput } from '../db/user'
+import { checkPasswordHash, getUserById, getUserByInput, userRequiresMfa } from '../db/user'
 import { addConsent, getConsentScopes, getExistingConsent } from '../db/consent'
 import type { Redirect } from '@shared/api-response/Redirect'
 import type { PasskeyRegisterResponse } from '@shared/api-response/PasskeyRegisterResponse'
@@ -53,9 +53,12 @@ import { logger } from '../util/logger'
 import { argon2 } from '../util/argon2id'
 import { zodValidate } from '../util/zodValidate'
 import zod from 'zod'
-import { passkeyRegistrationValidator } from '../../shared/validators'
+import { passkeyAuthenticationValidator, passkeyRegistrationValidator } from '../../shared/validators'
 import { passwordStrength } from '../util/zxcvbn'
-import { checkPrivileged, checkPrivilegedForTotpCreate, checkPrivilegedForTotpValidate } from '../util/authMiddleware'
+import { checkCanLogin,
+  checkPrivilegedForPasskeyCreate,
+  checkPrivilegedForTotpCreate,
+  checkPrivilegedForTotpValidate } from '../util/authMiddleware'
 import { TABLES } from '@shared/db'
 import type { InvitationCustomClaim, UserCustomClaim } from '@shared/db/CustomClaim'
 
@@ -205,7 +208,7 @@ router.get('/exists', async (req, res) => {
     successRedirect: redir,
     user: req.user
       ? {
-          isPrivileged: req.user.isPrivileged,
+          canLogin: req.user.canLogin,
           expiresAt: req.user.expiresAt,
           approved: req.user.approved,
         }
@@ -633,7 +636,7 @@ router.post('/register/passkey/end',
  * Start registering a passkey
  */
 router.post('/passkey/registration/start',
-  checkPrivileged,
+  checkPrivilegedForPasskeyCreate,
   zodValidate({
     body: {
       requireVerified: zod.boolean().optional(),
@@ -665,10 +668,14 @@ router.post('/passkey/registration/start',
  * Finish registering a passkey, finishes login and adds webauthn to amr
  */
 router.post('/passkey/registration/end',
-  checkPrivileged,
-  zodValidate({ body: passkeyRegistrationValidator }),
+  checkPrivilegedForPasskeyCreate,
+  zodValidate({ body: {
+    ...passkeyRegistrationValidator,
+    enableMfa: zod.boolean().optional(),
+    ensureMfa: zod.boolean().optional(),
+  } }),
   async (req, res) => {
-    const body = req.body
+    const { enableMfa, ensureMfa, ...body } = req.body
 
     // Should only be able to register if fully logged in
     const user = req.user
@@ -693,6 +700,10 @@ router.post('/passkey/registration/end',
       addAmr.push('webauthn_v')
     }
 
+    if (enableMfa || (ensureMfa && !userRequiresMfa(user))) {
+      await db().table<User>(TABLES.USER).update({ mfaRequired: true }).where({ id: user.id })
+    }
+
     const redir = await loginResult(req, res, {
       userId: user.id,
       username: user.username,
@@ -703,7 +714,7 @@ router.post('/passkey/registration/end',
   })
 
 router.patch('/passkey/:id',
-  checkPrivileged,
+  checkCanLogin,
   zodValidate({
     params: {
       id: zod.string(),
@@ -831,26 +842,7 @@ router.post('/passkey/start',
  */
 router.post('/passkey/end',
   zodValidate({
-    body: {
-      remember: zod.boolean().optional(),
-      id: zod.string(),
-      rawId: zod.string(),
-      response: zod.object({
-        clientDataJSON: zod.string(),
-        authenticatorData: zod.string(),
-        signature: zod.string(),
-        userHandle: zod.string().optional(),
-      }),
-      authenticatorAttachment: zod.enum(['cross-platform', 'platform']).optional(),
-      clientExtensionResults: zod.object({
-        appid: zod.boolean().optional(),
-        credProps: zod.object({
-          rk: zod.boolean().optional(),
-        }).optional(),
-        hmacCreateSecret: zod.boolean().optional(),
-      }),
-      type: zod.literal('public-key'),
-    },
+    body: passkeyAuthenticationValidator,
   }), async (req, res) => {
     const interaction = await getInteractionDetails(req, res)
     const session = await getSession(req, res)
@@ -861,7 +853,7 @@ router.post('/passkey/end',
       return
     }
 
-    const { remember, ...body } = req.body
+    const { remember, enableMfa, ensureMfa, ...body } = req.body
 
     const authOptions = await getAuthenticationOptions((interaction?.uid ?? session?.uid) as string)
 
@@ -907,7 +899,7 @@ router.post('/passkey/end',
       return
     }
 
-    await updatePasskeyCounter(passkey.id, authenticationInfo.newCounter)
+    await updatePasskeyCounter(passkey.id, authenticationInfo.newCounter, authenticationInfo.userVerified)
 
     const user = await getUserById(passkey.userId)
 
@@ -920,6 +912,10 @@ router.post('/passkey/end',
     const addAmr = ['webauthn']
     if (authenticationInfo.userVerified) {
       addAmr.push('webauthn_v')
+    }
+
+    if (enableMfa || (ensureMfa && !userRequiresMfa(user))) {
+      await db().table<User>(TABLES.USER).update({ mfaRequired: true }).where({ id: user.id })
     }
 
     const redir = await loginResult(req, res, {
@@ -964,7 +960,8 @@ router.post('/totp',
       return
     }
 
-    if (enableMfa) {
+    // totp always ensures MFA, optionally can enable MFA on account
+    if (enableMfa || !userRequiresMfa(user)) {
       await db().table<User>(TABLES.USER).update({ mfaRequired: true }).where({ id: user.id })
     }
 

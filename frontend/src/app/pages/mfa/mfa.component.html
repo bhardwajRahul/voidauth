@@ -12,14 +12,18 @@
       ></app-totp-input>
 
       @if (passkeySupport?.enabled) {
-        @if (user?.hasPasskeys) {
+        <!-- Passkey option if user has passkeys that would help -->
+        @if (
+          (user?.hasPasskeys && (!user.mfaRequired || !user.amr.includes("webauthn"))) ||
+          (user?.hasVerifyPasskeys && !user.amr.includes("webauthn_v"))
+        ) {
           <app-text-divider text="or" disabled></app-text-divider>
           <button mat-flat-button type="button" (click)="passkeyLogin()">
             {{ "mfa.actions.use-passkey" | translate: { platformName: passkeySupport.platformName ?? ("passkey-title" | translate) } }}
             <mat-icon fontSet="material-icons-round" matSuffix>{{ passkeySupport.platformIcon ?? "key" }}</mat-icon>
           </button>
         }
-        @if (user?.isPrivileged) {
+        @if (user?.isPrivilegedForPasskeyCreate) {
           <app-text-divider text="or" disabled></app-text-divider>
           <button mat-flat-button type="button" (click)="passkeyRegister()">
             {{ "mfa.actions.register-passkey" | translate }}

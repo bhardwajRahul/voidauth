@@ -36,7 +36,7 @@ import { logger } from '../util/logger'
 import { createPasswordReset } from '../db/passwordReset'
 import { zodValidate } from '../util/zodValidate'
 import zod from 'zod'
-import { checkAdmin, checkPrivileged } from '../util/authMiddleware'
+import { checkAdmin, checkCanLogin } from '../util/authMiddleware'
 import type { AdminConfig } from '@shared/api-response/admin/AdminConfig'
 import type { IncomingMessage } from 'http'
 import { TABLES } from '@shared/db'
@@ -48,7 +48,7 @@ import type { DeepWritable } from '@shared/utils'
 
 export const adminRouter = Router()
 
-adminRouter.use(checkPrivileged, checkAdmin)
+adminRouter.use(checkCanLogin, checkAdmin)
 
 adminRouter.get('/config', async (_req, res) => {
   const defaultGroupsWithClaims = await getGroupsCustomClaims(
