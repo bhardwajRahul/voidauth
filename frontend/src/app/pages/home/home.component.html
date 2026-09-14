@@ -226,7 +226,7 @@
           [matTooltip]="
             !user?.mfaRequired || user.hasMfaGroup || config?.mfaRequired
               ? 'Multi-Factor Authentication is not enabled'
-              : !user?.hasTotp
+              : !user.hasTotp
                 ? 'You do not have any registered authenticators'
                 : null
           "
@@ -237,7 +237,7 @@
             (click)="disabledMfa()"
             [disabled]="(!user?.mfaRequired || user.hasMfaGroup || config?.mfaRequired) && !user?.hasTotp"
           >
-            @if (!user?.hasTotp || !(!user?.mfaRequired || user.hasMfaGroup || config?.mfaRequired)) {
+            @if (!user?.hasTotp || !(!user.mfaRequired || user.hasMfaGroup || config?.mfaRequired)) {
               {{ "settings.sections.account.disableMfa.label" | translate }}
             } @else {
               {{ "settings.sections.account.removeAuthenticators.label" | translate }}

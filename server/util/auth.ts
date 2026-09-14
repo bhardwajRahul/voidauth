@@ -79,18 +79,18 @@ export function userIsPrivilegedForEmail(user: UserDetails | undefined, amr: amr
   return true
 }
 
-export function userIsPrivilegedForTotpCreate(user: UserDetails | undefined, amr: amrFactor[]): boolean {
+export function userIsPrivilegedForPasskeyCreate(user: UserDetails | undefined, amr: amrFactor[]): boolean {
   if (!user) {
-    return false
-  }
-
-  // If they already have mfa factors, require strict privilege to manage it. Otherwise allow set up
-  if (userCanMfa(user) && !userMfaComplete(user, amr)) {
     return false
   }
 
   // Users can only create a totp if they are already at least partially logged in with a first factor
   if (!loginFactors(amr)) {
+    return false
+  }
+
+  // If they already have mfa factors, require strict privilege to manage it. Otherwise allow set up
+  if (userCanMfa(user) && !userMfaComplete(user, amr)) {
     return false
   }
 
@@ -110,10 +110,32 @@ export function userIsPrivilegedForTotpCreate(user: UserDetails | undefined, amr
   return true
 }
 
-export function userIsPrivilegedForPasskeyCreate(user: UserDetails | undefined, amr: amrFactor[]): boolean {
-  return userIsPrivilegedForTotpCreate(user, amr)
+export function userIsPrivilegedForTotpCreate(user: UserDetails | undefined, amr: amrFactor[]): boolean {
+  return userIsPrivilegedForPasskeyCreate(user, amr)
 }
 
 export function userIsPrivilegedForTotpValidate(user: UserDetails | undefined, amr: amrFactor[]): boolean {
-  return userIsPrivilegedForTotpCreate(user, amr)
+  if (!user) {
+    return false
+  }
+
+  // Users can only validate a totp if they are already at least partially logged in with a first factor
+  if (!loginFactors(amr)) {
+    return false
+  }
+
+  if (isUnapproved(user, appConfig.SIGNUP_REQUIRES_APPROVAL)) {
+    return false
+  }
+
+  if (isExpired(user)) {
+    return false
+  }
+
+  // Can still set up totp if they don't have an email, even if it is required
+  if (user.hasEmail && isUnverifiedEmail(user, !!appConfig.EMAIL_VERIFICATION)) {
+    return false
+  }
+
+  return true
 }

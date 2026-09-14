@@ -46,5 +46,6 @@ export type CurrentUserPrivateDetails = UserDetails & UserSessionInfo
 // so should not contain anything that could be used to elevate privileges or identify the user
 export type CurrentUserDetails = OnlyKeys<
   UserDetails,
-  'id' | 'isAdmin' | 'hasTotp' | 'hasPasskeys' | 'hasVerifyPasskeys' | 'hasEmail' | 'emailVerified' | 'expiresAt' | 'approved'>
+  'id' | 'isAdmin' | 'mfaRequired' | 'hasTotp'
+  | 'hasPasskeys' | 'hasVerifyPasskeys' | 'hasEmail' | 'emailVerified' | 'expiresAt' | 'approved'>
   & UserSessionInfo
