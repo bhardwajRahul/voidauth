@@ -34,7 +34,6 @@ export const passkeyRegistrationValidator = {
 export const passkeyAuthenticationValidator = {
   remember: zod.boolean().optional(),
   enableMfa: zod.boolean().optional(),
-  ensureMfa: zod.boolean().optional(),
   id: zod.string(),
   rawId: zod.string(),
   response: zod.object({

@@ -145,7 +145,7 @@
       <h2 style="margin-top: -16px">{{ "settings.sections.security.mfa.title" | translate }}</h2>
 
       <p style="text-align: center">
-        @if (user?.mfaRequired || user?.hasMfaGroup || config?.mfaRequired) {
+        @if (user?.mfaRequired) {
           {{ "settings.sections.security.mfa.status.enabled" | translate }}
         } @else {
           {{ "settings.sections.security.mfa.status.disabled" | translate }}
@@ -162,7 +162,7 @@
 
       <mat-card-actions>
         <button mat-flat-button type="button" (click)="addAuthenticator()">
-          @if (user?.mfaRequired || user?.hasMfaGroup || config?.mfaRequired) {
+          @if (user?.mfaRequired) {
             {{ "settings.sections.security.mfa.add.label" | translate }}
           } @else {
             {{ "settings.sections.security.mfa.enable.label" | translate }}
@@ -224,7 +224,7 @@
 
         <span
           [matTooltip]="
-            !user?.mfaRequired || user.hasMfaGroup || config?.mfaRequired
+            !user?.mfaRequired
               ? 'Multi-Factor Authentication is not enabled'
               : !user.hasTotp
                 ? 'You do not have any registered authenticators'
@@ -235,9 +235,9 @@
             type="button"
             class="error-button"
             (click)="disabledMfa()"
-            [disabled]="(!user?.mfaRequired || user.hasMfaGroup || config?.mfaRequired) && !user?.hasTotp"
+            [disabled]="!user?.mfaRequired && !user?.hasTotp"
           >
-            @if (!user?.hasTotp || !(!user.mfaRequired || user.hasMfaGroup || config?.mfaRequired)) {
+            @if (!user?.hasTotp || user.mfaRequired) {
               {{ "settings.sections.account.disableMfa.label" | translate }}
             } @else {
               {{ "settings.sections.account.removeAuthenticators.label" | translate }}

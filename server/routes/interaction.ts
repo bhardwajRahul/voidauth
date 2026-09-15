@@ -1,6 +1,6 @@
 import { Router, type Response } from 'express'
 import { getSession, provider } from '../oidc/provider'
-import { checkPasswordHash, getUserById, getUserByInput, userRequiresMfa } from '../db/user'
+import { checkPasswordHash, getUserById, getUserByInput } from '../db/user'
 import { addConsent, getConsentScopes, getExistingConsent } from '../db/consent'
 import type { Redirect } from '@shared/api-response/Redirect'
 import type { PasskeyRegisterResponse } from '@shared/api-response/PasskeyRegisterResponse'
@@ -672,10 +672,9 @@ router.post('/passkey/registration/end',
   zodValidate({ body: {
     ...passkeyRegistrationValidator,
     enableMfa: zod.boolean().optional(),
-    ensureMfa: zod.boolean().optional(),
   } }),
   async (req, res) => {
-    const { enableMfa, ensureMfa, ...body } = req.body
+    const { enableMfa, ...body } = req.body
 
     // Should only be able to register if fully logged in
     const user = req.user
@@ -700,7 +699,7 @@ router.post('/passkey/registration/end',
       addAmr.push('webauthn_v')
     }
 
-    if (enableMfa || (ensureMfa && !userRequiresMfa(user))) {
+    if (enableMfa) {
       await db().table<User>(TABLES.USER).update({ mfaRequired: true }).where({ id: user.id })
     }
 
@@ -853,7 +852,7 @@ router.post('/passkey/end',
       return
     }
 
-    const { remember, enableMfa, ensureMfa, ...body } = req.body
+    const { remember, enableMfa, ...body } = req.body
 
     const authOptions = await getAuthenticationOptions((interaction?.uid ?? session?.uid) as string)
 
@@ -914,7 +913,7 @@ router.post('/passkey/end',
       addAmr.push('webauthn_v')
     }
 
-    if (enableMfa || (ensureMfa && !userRequiresMfa(user))) {
+    if (enableMfa) {
       await db().table<User>(TABLES.USER).update({ mfaRequired: true }).where({ id: user.id })
     }
 
@@ -935,7 +934,6 @@ router.post('/totp',
   checkPrivilegedForTotpValidate,
   zodValidate({
     body: {
-      enableMfa: zod.boolean().optional(),
       token: zod.string(),
     },
   }), async (req, res) => {
@@ -952,7 +950,7 @@ router.post('/totp',
       return
     }
 
-    const { token, enableMfa } = req.body
+    const { token } = req.body
 
     if (!await validateTOTP(user.id, token)) {
       await recordTotpFailure(user.id)
@@ -960,10 +958,8 @@ router.post('/totp',
       return
     }
 
-    // totp always ensures MFA, optionally can enable MFA on account
-    if (enableMfa || !userRequiresMfa(user)) {
-      await db().table<User>(TABLES.USER).update({ mfaRequired: true }).where({ id: user.id })
-    }
+    // totp always ensures MFA, there is no reason to have a totp without MFA
+    await db().table<User>(TABLES.USER).update({ mfaRequired: true }).where({ id: user.id })
 
     const redir = await loginResult(req, res, {
       userId: user.id,

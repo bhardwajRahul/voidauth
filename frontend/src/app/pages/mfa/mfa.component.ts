@@ -79,7 +79,7 @@ export class MfaComponent implements OnInit {
     this.spinnerService.show()
     this.disabled.set(true)
     try {
-      const redirect = await this.authService.verifyTotp(token, false)
+      const redirect = await this.authService.verifyTotp(token)
 
       // See if we want to ask the user to register a passkey
       try {
@@ -124,7 +124,7 @@ export class MfaComponent implements OnInit {
     this.spinnerService.show()
     try {
       // Only require verified passkey if normal passkey would not improve user's mfa level
-      const redirect = await this.passkeyService.login({ requireVerified: this.user?.amr.includes('webauthn'), ensureMfa: true })
+      const redirect = await this.passkeyService.login({ requireVerified: this.user?.amr.includes('webauthn'), enableMfa: true })
       if (redirect) {
         this.spinnerService.show(true)
         window.location.assign(redirect.location)
@@ -141,7 +141,7 @@ export class MfaComponent implements OnInit {
     this.spinnerService.show()
     try {
       // Only require verified passkey if normal passkey would not improve user's mfa level
-      const redirect = await this.passkeyService.register({ requireVerified: this.user?.amr.includes('webauthn'), ensureMfa: true })
+      const redirect = await this.passkeyService.register({ requireVerified: this.user?.amr.includes('webauthn'), enableMfa: true })
       if (redirect.location) {
         this.spinnerService.show(true)
         window.location.assign(redirect.location)

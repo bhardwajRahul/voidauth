@@ -326,8 +326,7 @@ export class HomeComponent implements OnInit, OnDestroy {
 
   addAuthenticator() {
     const hadTotp = this.user?.hasTotp
-    const dialogRef = this.dialog.open<TotpRegisterComponent, { enableMfa: boolean } | undefined>(TotpRegisterComponent, {
-      data: { enableMfa: true },
+    const dialogRef = this.dialog.open(TotpRegisterComponent, {
       panelClass: 'overflow-auto',
     })
 
