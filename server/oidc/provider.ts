@@ -1,5 +1,5 @@
 import Provider, { type ClientMetadata, type Configuration } from 'oidc-provider'
-import { findAccount, getUserById, userRequiresMfa } from '../db/user'
+import { findAccount, getUserById } from '../db/user'
 import appConfig, { basePath, getSessionDomain, sessionDomainReaches } from '../util/config'
 import { KnexAdapter } from './adapter'
 import { ADMIN_GROUP, CLIENT_DEFAULTS, REDIRECT_PATHS, TTLs } from '@shared/constants'
@@ -124,9 +124,17 @@ loginPromptPolicy.checks.add(new Check('user_mfa_required',
     const { oidc } = ctx
     if (oidc.account?.accountId) {
       const user = await getUserById(oidc.account.accountId)
-      const amr = oidc.session?.amr ?? []
-      if (user && userRequiresMfa(user) && loginFactors(amr as amrFactor[]) < 2) {
-        return Check.REQUEST_PROMPT
+      const amr = (oidc.session?.amr ?? []) as amrFactor[]
+
+      if (user) {
+        // If user has MFA enabled, they must have it completed it
+        if (user.mfaRequired && loginFactors(amr) < 2) {
+          return Check.REQUEST_PROMPT
+        }
+        // If user is required to have MFA, they must have it enabled
+        if ((user.hasMfaGroup || appConfig.MFA_REQUIRED) && !user.mfaRequired) {
+          return Check.REQUEST_PROMPT
+        }
       }
     }
 
@@ -167,7 +175,7 @@ consentPromptPolicy.checks.add(new Check('client_mfa_required',
   'client requires mfa',
   'client_mfa_required', async (ctx) => {
     const { oidc } = ctx
-    const amr = oidc.session?.amr ?? []
+    const amr = (oidc.session?.amr ?? []) as amrFactor[]
     let mfaRequired = false
 
     // If client requires mfa, check for it
@@ -187,12 +195,14 @@ consentPromptPolicy.checks.add(new Check('client_mfa_required',
     }
 
     if (mfaRequired) {
-      if (loginFactors(amr as amrFactor[]) < 2) {
+      // If user does not have MFA factors
+      if (loginFactors(amr) < 2) {
         return Check.REQUEST_PROMPT
       }
 
+      // If user must have MFA enabled, but does not
       const user = oidc.account?.accountId ? await getUserById(oidc.account.accountId) : null
-      if (user && !userRequiresMfa(user)) {
+      if (user && !user.mfaRequired) {
         // User does not require mfa, but client does. Make user enable mfa for future logins
         return Check.REQUEST_PROMPT
       }

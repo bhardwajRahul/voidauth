@@ -1,21 +1,6 @@
 import type { UserDetails } from '@shared/api-response/UserDetails'
 import { availableLoginFactors, isExpired, isUnapproved, isUnverifiedEmail, loginFactors, type amrFactor } from '@shared/user'
-import { userRequiresMfa } from '../db/user'
 import appConfig from './config'
-
-function userMfaComplete(user: Pick<UserDetails, 'mfaRequired' | 'hasMfaGroup'>, amr: amrFactor[]) {
-  const factors = loginFactors(amr)
-
-  if (factors === 0) {
-    return false
-  }
-
-  if (userRequiresMfa(user) && factors < 2) {
-    return false
-  }
-
-  return true
-}
 
 function userCanMfa(user: UserDetails) {
   return loginFactors(availableLoginFactors(user)) > 1
@@ -33,18 +18,32 @@ export function userCanLogin(
     return false
   }
 
-  if (!userMfaComplete(user, amr)) {
+  // If user has no factors, they cannot login
+  if (!loginFactors(amr)) {
     return false
   }
 
+  // If user has MFA enabled, they must have it completed
+  if (user.mfaRequired && loginFactors(amr) < 2) {
+    return false
+  }
+
+  // If user is required to have MFA, they must have it enabled
+  if ((user.hasMfaGroup || appConfig.MFA_REQUIRED) && !user.mfaRequired) {
+    return false
+  }
+
+  // Users must be approved to login if required by config
   if (isUnapproved(user, appConfig.SIGNUP_REQUIRES_APPROVAL)) {
     return false
   }
 
+  // Users must not be expired to login
   if (isExpired(user)) {
     return false
   }
 
+  // Users must have a verified email to login if required by config
   if (isUnverifiedEmail(user, !!appConfig.EMAIL_VERIFICATION)) {
     return false
   }
@@ -59,7 +58,18 @@ export function userIsPrivilegedForEmail(user: UserDetails | undefined, amr: amr
     return false
   }
 
-  if (!userMfaComplete(user, amr)) {
+  // If user has no factors, they cannot login
+  if (!loginFactors(amr)) {
+    return false
+  }
+
+  // If user has MFA enabled, they must have it completed
+  if (user.mfaRequired && loginFactors(amr) < 2) {
+    return false
+  }
+
+  // If user is required to have MFA, they must have it enabled
+  if ((user.hasMfaGroup || appConfig.MFA_REQUIRED) && !user.mfaRequired) {
     return false
   }
 
@@ -84,13 +94,13 @@ export function userIsPrivilegedForPasskeyCreate(user: UserDetails | undefined, 
     return false
   }
 
-  // Users can only create a totp if they are already at least partially logged in with a first factor
+  // If user has no factors, they cannot login
   if (!loginFactors(amr)) {
     return false
   }
 
-  // If they already have mfa factors, require strict privilege to manage it. Otherwise allow set up
-  if (userCanMfa(user) && !userMfaComplete(user, amr)) {
+  // If user has MFA enabled, they must have it completed if they can
+  if (userCanMfa(user) && user.mfaRequired && loginFactors(amr) < 2) {
     return false
   }
 

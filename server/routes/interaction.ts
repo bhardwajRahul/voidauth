@@ -373,7 +373,7 @@ router.post('/register',
       approved: !!invitationValid, // invited users are approved by default
       expiresAt: invitation?.userExpiresAt ? new Date(invitation.userExpiresAt) : null,
       emailVerified: !!invitation?.email && invitation.emailVerified,
-      mfaRequired: false,
+      mfaRequired: !!invitation?.mfaRequired,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
@@ -540,7 +540,7 @@ router.post('/register/passkey/end',
       approved: !!invitationValid, // invited users are approved by default
       expiresAt: invitation?.userExpiresAt ? new Date(invitation.userExpiresAt) : null,
       emailVerified: !!invitation?.email && invitation.emailVerified,
-      mfaRequired: false,
+      mfaRequired: !!invitation?.mfaRequired,
       createdAt: new Date(),
       updatedAt: new Date(),
     }

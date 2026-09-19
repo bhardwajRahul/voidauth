@@ -54,7 +54,7 @@ export class MfaComponent implements OnInit {
       this.config = await this.configService.getConfig()
 
       // User does not have a totp, but should be able to register one
-      if (this.user && !this.user.hasTotp && this.user.isPrivilegedForTotpCreate) {
+      if (this.user && (!this.user.hasTotp || !this.user.mfaRequired) && this.user.isPrivilegedForTotpCreate) {
         try {
           const { secret, uri } = await this.authService.registerTotp()
           this.secret.set(secret)

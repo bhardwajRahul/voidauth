@@ -1,7 +1,7 @@
 import { proxyAuthPath } from '@shared/oidc'
 import { type Request, type Response } from 'express'
 import { formatProxyAuthDomain, getProxyAuthWithCache } from '../db/proxyAuth'
-import { checkPasswordHash, getUserByInput, userRequiresMfa } from '../db/user'
+import { checkPasswordHash, getUserByInput } from '../db/user'
 import appConfig, { appUrl, getSessionDomain, sessionDomainReaches } from './config'
 import type { UserDetails } from '@shared/api-response/UserDetails'
 import { ADMIN_GROUP, REDIRECT_PATHS } from '@shared/constants'
@@ -155,7 +155,7 @@ export async function proxyAuth(url: URL, method: 'forward-auth' | 'auth-request
 
   // Check that proxyAuth domain does not require MFA or user is logged in with MFA already
   // Even if user has MFA session, user must also have MFA enabled on their account
-  if (!!match.mfaRequired && (loginFactors(amr) < 2 || !userRequiresMfa(user))) {
+  if (!!match.mfaRequired && (loginFactors(amr) < 2 || !user.mfaRequired)) {
     // If not, redirect to login flow, which will send to correct redirect
     logger({
       level: 'debug',

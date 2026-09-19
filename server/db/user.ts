@@ -185,10 +185,6 @@ export async function checkPasswordHash(userId: string, password: string): Promi
   return !!user && !!password && !!user.passwordHash && argon2.verify(user.passwordHash, password)
 }
 
-export function userRequiresMfa(user: Pick<UserDetails, 'mfaRequired' | 'hasMfaGroup'>) {
-  return appConfig.MFA_REQUIRED || !!user.mfaRequired || user.hasMfaGroup
-}
-
 export async function endSessions(userId: string) {
   await db().table<OIDCPayload>(TABLES.OIDC_PAYLOADS).delete().where({ type: 'Session', accountId: userId })
 }
