@@ -40,6 +40,7 @@ import { checkAdmin, checkCanLogin } from '../util/authMiddleware'
 import type { AdminConfig } from '@shared/api-response/admin/AdminConfig'
 import type { IncomingMessage } from 'http'
 import { TABLES } from '@shared/db'
+import type { TOTP } from '@shared/db/TOTP'
 import type { CustomClaim, GroupCustomClaim, InvitationCustomClaim, UserCustomClaim } from '@shared/db/CustomClaim'
 import { getCustomClaimDetails, getCustomClaimsRecords, getGroupsCustomClaims } from '../db/claims'
 import type { ClientMetadata } from 'oidc-provider'
@@ -479,6 +480,11 @@ adminRouter.patch('/user',
     if (!ucount) {
       res.sendStatus(404)
       return
+    }
+
+    // If MFA was required before and is now being disabled, remove the users TOTPs
+    if (existingUser.mfaRequired && !userUpdate.mfaRequired) {
+      await db().table<TOTP>(TABLES.TOTP).delete().where({ userId: userUpdate.id })
     }
 
     // Update groups
