@@ -228,7 +228,7 @@ Redirect URLs: https://dawarich.example.com/users/auth/openid_connect/callback
 
 <br>
 
-## <img src="https://dockhand.pro/images/logo-dark.webp" width="28" /> Dockhand
+## <img src="https://dockhand.pro/images/dockhand-logo.svg" width="28" /> Dockhand
 
 Navigate to **Settings** > **Authentication** > **SSO** in Dockhand. Click **Add provider**. See the [Dockhand OIDC Configuration Guide](https://dockhand.pro/manual/#appendix-oidc) for detailed setup instructions.
 
