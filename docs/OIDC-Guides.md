@@ -338,7 +338,11 @@ Redirect URLs:
   - https://immich.example.com/auth/login
   - https://immich.example.com/user-settings
   - app.immich:///oauth-callback
+Backchannel Logout URL: https://immich.example.com/api/oauth/backchannel-logout
 ```
+
+> [!NOTE]
+> The backchannel logout URL must be reachable from VoidAuth. If VoidAuth is running in the same Docker Compose project as Immich, use something like `http://immich:2283/api/oauth/backchannel-logout` instead.
 
 <br>
 

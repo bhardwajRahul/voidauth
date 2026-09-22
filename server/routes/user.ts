@@ -8,6 +8,7 @@ import { createEmailVerification } from './interaction'
 import { updatePasswordValidator } from '@shared/api-request/UpdatePassword'
 import type { User } from '@shared/db/User'
 import { checkPasswordHash } from '../db/user'
+import { endUserSessions } from '../oidc/provider'
 import { deleteUserPasskey, deleteUserPasskeys, getUserPasskeys, getUserPasskeysResponse } from '../db/passkey'
 import type { OIDCPayload } from '@shared/db/OIDCPayload'
 import { TABLES } from '@shared/db'
@@ -289,6 +290,7 @@ userRouter.delete('/user', async (req, res) => {
     return
   }
 
+  await endUserSessions(user.id)
   await db().table<User>(TABLES.USER).delete().where({ id: user.id })
   await db().table<OIDCPayload>(TABLES.OIDC_PAYLOADS).delete().where({ accountId: user.id })
   res.send()
