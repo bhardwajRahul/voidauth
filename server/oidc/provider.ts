@@ -633,7 +633,10 @@ export async function isProviderClaimsDesynced() {
     return
   }
 
-  const providerClaims = (providerConfig.claims ?? {})['openid'] ?? []
+  let providerClaims = (providerConfig.claims ?? {})['openid'] ?? []
+  if (!(providerClaims instanceof Array)) {
+    providerClaims = Object.keys(providerClaims)
+  }
 
   const claimsDesynced = (new Set(currentClaims)).symmetricDifference(new Set(providerClaims)).size > 0
   return claimsDesynced
